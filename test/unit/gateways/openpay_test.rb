@@ -20,6 +20,14 @@ class OpenpayTest < Test::Unit::TestCase
     }
   end
 
+  def test_endpoint_for_the_gateway
+    stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, @options)
+    end.check_request do |_method, endpoint, _data, _headers|
+      assert endpoint.include?('.co')
+    end.respond_with(successful_purchase_response)
+  end
+
   def test_successful_purchase
     @gateway.expects(:ssl_request).returns(successful_purchase_response)
 
@@ -113,7 +121,7 @@ class OpenpayTest < Test::Unit::TestCase
   def test_successful_purchase_with_card_id
     @gateway.expects(:ssl_request).returns(successful_purchase_response)
 
-    assert response = @gateway.purchase(@amount, {credit_card: 'a2b79p8xmzeyvmolqfja'}, @options)
+    assert response = @gateway.purchase(@amount, { credit_card: 'a2b79p8xmzeyvmolqfja' }, @options)
     assert_instance_of Response, response
     assert_success response
 

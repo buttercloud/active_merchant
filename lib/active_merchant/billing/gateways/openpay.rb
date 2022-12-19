@@ -1,8 +1,8 @@
 module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
     class OpenpayGateway < Gateway
-      self.live_url = 'https://api.openpay.mx/v1/'
-      self.test_url = 'https://sandbox-api.openpay.mx/v1/'
+      self.live_url = 'https://api.openpay.co/v1/'
+      self.test_url = 'https://sandbox-api.openpay.co/v1/'
 
       self.supported_countries = ['MX']
       self.supported_cardtypes = [:visa, :master, :american_express]
@@ -113,6 +113,8 @@ module ActiveMerchant #:nodoc:
         post[:order_id] = options[:order_id]
         post[:device_session_id] = options[:device_session_id]
         post[:currency] = (options[:currency] || currency(money)).upcase
+        post[:use_card_points] = options[:use_card_points] if options[:use_card_points]
+        post[:payment_plan] = { payments: options[:payments] } if options[:payments]
         add_creditcard(post, creditcard, options)
         post
       end
@@ -169,9 +171,8 @@ module ActiveMerchant #:nodoc:
         Response.new(success,
           (success ? response['error_code'] : response['description']),
           response,
-          :test => test?,
-          :authorization => response['id']
-        )
+          test: test?,
+          authorization: response['id'])
       end
 
       def http_request(method, resource, parameters={}, options={})

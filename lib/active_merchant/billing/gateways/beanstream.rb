@@ -168,10 +168,10 @@ module ActiveMerchant #:nodoc:
       #can't actually delete a secure profile with the supplicated API. This function sets the status of the profile to closed (C).
       #Closed profiles will have to removed manually.
       def delete(vault_id)
-        update(vault_id, false, {:status => "C"})
+        update(vault_id, false, { status: 'C' })
       end
 
-      alias_method :unstore, :delete
+      alias unstore delete
 
       # Update the values (such as CC expiration) stored at
       # the gateway.  The CC number must be supplied in the

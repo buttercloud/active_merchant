@@ -15,9 +15,11 @@ class MerchantESolutionsTest < Test::Unit::TestCase
     @amount = 100
 
     @options = {
-      :order_id => '1',
-      :billing_address => address,
-      :description => 'Store Purchase'
+      order_id: '1',
+      recurring_pmt_num: 11,
+      recurring_pmt_count: 10,
+      billing_address: address,
+      description: 'Store Purchase'
     }
   end
 
@@ -30,6 +32,14 @@ class MerchantESolutionsTest < Test::Unit::TestCase
     assert response.test?
   end
 
+  def test_successful_purchase_with_moto_ecommerce_ind
+    stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, { moto_ecommerce_ind: '7' })
+    end.check_request do |_method, _endpoint, data, _headers|
+      assert_match(/moto_ecommerce_ind=7/, data)
+    end.respond_with(successful_purchase_response)
+  end
+
   def test_unsuccessful_purchase
     @gateway.expects(:ssl_post).returns(failed_purchase_response)
     assert response = @gateway.purchase(@amount, @credit_card, @options)
@@ -38,7 +48,7 @@ class MerchantESolutionsTest < Test::Unit::TestCase
   end
 
   def test_purchase_with_long_order_id_truncates_id
-    options = {order_id: "thisislongerthan17characters"}
+    options = { order_id: 'thisislongerthan17characters' }
     @gateway.expects(:ssl_post).with(
       anything,
       all_of(
@@ -84,20 +94,24 @@ class MerchantESolutionsTest < Test::Unit::TestCase
     assert response.test?
   end
 
-  def test_store
-    @gateway.expects(:ssl_post).returns(successful_store_response)
-    assert response = @gateway.store(@credit_card)
-    assert response.success?
-    assert_equal 'ae641b57b19b3bb89faab44191479872', response.authorization
-    assert response.test?
-  end
-
   def test_unstore
     @gateway.expects(:ssl_post).returns(successful_unstore_response)
     assert response = @gateway.unstore('ae641b57b19b3bb89faab44191479872')
     assert response.success?
     assert_equal 'd79410c91b4b31ba99f5a90558565df9', response.authorization
     assert response.test?
+  end
+
+  def test_successful_verify
+    response = stub_comms(@gateway, :ssl_request) do
+      @gateway.verify(@credit_card, { store_card: 'y' })
+    end.check_request do |_method, _endpoint, data, _headers|
+      assert_match(/transaction_type=A/, data)
+      assert_match(/store_card=y/, data)
+      assert_match(/card_number=#{@credit_card.number}/, data)
+    end.respond_with(successful_verify_response)
+    assert_success response
+    assert_equal 'Card Ok', response.message
   end
 
   def test_successful_avs_check
@@ -143,8 +157,8 @@ class MerchantESolutionsTest < Test::Unit::TestCase
 
   def test_visa_3dsecure_params_submitted
     stub_comms(@gateway, :ssl_request) do
-      @gateway.purchase(@amount, @credit_card, @options.merge({:xid => '1', :cavv => '2'}))
-    end.check_request do |method, endpoint, data, headers|
+      @gateway.purchase(@amount, @credit_card, @options.merge({ xid: '1', cavv: '2' }))
+    end.check_request do |_method, _endpoint, data, _headers|
       assert_match(/xid=1/, data)
       assert_match(/cavv=2/, data)
     end.respond_with(successful_purchase_response)
@@ -152,8 +166,8 @@ class MerchantESolutionsTest < Test::Unit::TestCase
 
   def test_mastercard_3dsecure_params_submitted
     stub_comms(@gateway, :ssl_request) do
-      @gateway.purchase(@amount, @credit_card, @options.merge({:ucaf_collection_ind => '1', :ucaf_auth_data => '2'}))
-    end.check_request do |method, endpoint, data, headers|
+      @gateway.purchase(@amount, @credit_card, @options.merge({ ucaf_collection_ind: '1', ucaf_auth_data: '2' }))
+    end.check_request do |_method, _endpoint, data, _headers|
       assert_match(/ucaf_collection_ind=1/, data)
       assert_match(/ucaf_auth_data=2/, data)
     end.respond_with(successful_purchase_response)
@@ -195,6 +209,10 @@ class MerchantESolutionsTest < Test::Unit::TestCase
 
   def successful_unstore_response
     'transaction_id=d79410c91b4b31ba99f5a90558565df9&error_code=000&auth_response_text=Stored Card Data Deleted'
+  end
+
+  def successful_verify_response
+    'transaction_id=a5ef059bff7a3f75ac2398eea4cc73cd&error_code=085&auth_response_text=Card Ok&avs_result=0&cvv2_result=M&auth_code=T1933H'
   end
 
   def failed_purchase_response

@@ -24,7 +24,7 @@ class RemoteOpenpayTest < Test::Unit::TestCase
   def test_unsuccessful_purchase
     assert response = @gateway.purchase(@amount, @declined_card, @options)
     assert_failure response
-    assert_equal 'The card is not supported on online transactions', response.message
+    assert_equal 'The card was declined by the bank', response.message
   end
 
   def test_successful_refund
@@ -55,7 +55,7 @@ class RemoteOpenpayTest < Test::Unit::TestCase
   def test_unsuccessful_authorize
     assert response = @gateway.authorize(@amount, @declined_card, @options)
     assert_failure response
-    assert_equal 'The card is not supported on online transactions', response.message
+    assert_equal 'The card was declined by the bank', response.message
   end
 
   def test_successful_capture
