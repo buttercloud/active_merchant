@@ -329,6 +329,8 @@ module ActiveMerchant #:nodoc:
             xml.tag! 'ThreeDSVersion', three_d_secure[:version] unless three_d_secure[:version].blank?
             xml.tag! 'DSTransactionID', three_d_secure[:ds_transaction_id] unless three_d_secure[:ds_transaction_id].blank?
           end
+        end
+      end
 
       def authentication_status(three_d_secure, xml)
         status = if three_d_secure[:authentication_response_status].present?
@@ -448,4 +450,3 @@ module ActiveMerchant #:nodoc:
     end
   end
 end
-
