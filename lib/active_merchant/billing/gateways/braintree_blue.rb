@@ -747,6 +747,7 @@ module ActiveMerchant #:nodoc:
         else
           { xid: three_d_secure_opts[:xid] }
         end
+      end
 
       def add_stored_credential_data(parameters, credit_card_or_vault_id, options)
         return unless (stored_credential = options[:stored_credential])
