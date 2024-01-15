@@ -6,18 +6,23 @@ class RemoteWorldpayTest < Test::Unit::TestCase
     @cftgateway = WorldpayGateway.new(fixtures(:world_pay_gateway_cft))
 
     @amount = 100
+    @year = (Time.now.year + 2).to_s[-2..-1].to_i
     @credit_card = credit_card('4111111111111111')
     @amex_card = credit_card('3714 496353 98431')
-    @elo_credit_card = credit_card('4514 1600 0000 0008',
+    @elo_credit_card = credit_card(
+      '4514 1600 0000 0008',
       month: 10,
       year: 2020,
       first_name: 'John',
       last_name: 'Smith',
       verification_value: '737',
-      brand: 'elo')
-    @credit_card_with_two_digits_year = credit_card('4111111111111111',
+      brand: 'elo'
+    )
+    @credit_card_with_two_digits_year = credit_card(
+      '4111111111111111',
       month: 10,
-      year: 22)
+      year: @year
+    )
     @cabal_card = credit_card('6035220000000006')
     @naranja_card = credit_card('5895620000000002')
     @sodexo_voucher = credit_card('6060704495764400', brand: 'sodexo')
@@ -26,14 +31,18 @@ class RemoteWorldpayTest < Test::Unit::TestCase
     @threeDS2_card = credit_card('4111111111111111', first_name: nil, last_name: '3DS_V2_FRICTIONLESS_IDENTIFIED')
     @threeDS2_challenge_card = credit_card('4000000000001091', first_name: nil, last_name: 'challenge-me-plz')
     @threeDS_card_external_MPI = credit_card('4444333322221111', first_name: 'AA', last_name: 'BD')
-    @nt_credit_card = network_tokenization_credit_card('4895370015293175',
+    @nt_credit_card = network_tokenization_credit_card(
+      '4895370015293175',
       brand: 'visa',
       eci: '07',
       source: :network_token,
-      payment_cryptogram: 'EHuWW9PiBkWvqE5juRwDzAUFBAk=')
-    @nt_credit_card_without_eci = network_tokenization_credit_card('4895370015293175',
+      payment_cryptogram: 'EHuWW9PiBkWvqE5juRwDzAUFBAk='
+    )
+    @nt_credit_card_without_eci = network_tokenization_credit_card(
+      '4895370015293175',
       source: :network_token,
-      payment_cryptogram: 'EHuWW9PiBkWvqE5juRwDzAUFBAk=')
+      payment_cryptogram: 'EHuWW9PiBkWvqE5juRwDzAUFBAk='
+    )
 
     @options = {
       order_id: generate_unique_id,
@@ -130,7 +139,8 @@ class RemoteWorldpayTest < Test::Unit::TestCase
         sub_tax_id: '987-65-4321'
       }
     }
-    @apple_pay_network_token = network_tokenization_credit_card('4895370015293175',
+    @apple_pay_network_token = network_tokenization_credit_card(
+      '4895370015293175',
       month: 10,
       year: Time.new.year + 2,
       first_name: 'John',
@@ -139,15 +149,18 @@ class RemoteWorldpayTest < Test::Unit::TestCase
       payment_cryptogram: 'abc1234567890',
       eci: '07',
       transaction_id: 'abc123',
-      source: :apple_pay)
+      source: :apple_pay
+    )
 
-    @google_pay_network_token = network_tokenization_credit_card('4444333322221111',
+    @google_pay_network_token = network_tokenization_credit_card(
+      '4444333322221111',
       payment_cryptogram: 'EHuWW9PiBkWvqE5juRwDzAUFBAk=',
       month: '01',
       year: Time.new.year + 2,
       source: :google_pay,
       transaction_id: '123456789',
-      eci: '05')
+      eci: '05'
+    )
   end
 
   def test_successful_purchase
@@ -1155,6 +1168,31 @@ class RemoteWorldpayTest < Test::Unit::TestCase
     assert purchase = @cftgateway.purchase(@amount, @credit_card, options.merge(instalments: 3, skip_capture: true, authorization_validated: true))
     assert_success purchase
   end
+
+  # There is a delay of up to 5 minutes for a transaction to be recorded by Worldpay. Inquiring
+  # too soon will result in an error "Order not ready". Leaving commented out due to included sleeps.
+  # def test_successful_inquire_with_order_id
+  #   order_id = @options[:order_id]
+  #   assert auth = @gateway.authorize(@amount, @credit_card, @options)
+  #   assert_success auth
+  #   assert auth.authorization
+  #   sleep 60
+
+  #   assert inquire = @gateway.inquire(nil, { order_id: order_id })
+  #   assert_success inquire
+  #   assert auth.authorization == inquire.authorization
+  # end
+
+  # def test_successful_inquire_with_authorization
+  #   assert auth = @gateway.authorize(@amount, @credit_card, @options)
+  #   assert_success auth
+  #   assert auth.authorization
+  #   sleep 60
+
+  #   assert inquire = @gateway.inquire(auth.authorization, {})
+  #   assert_success inquire
+  #   assert auth.authorization == inquire.authorization
+  # end
 
   private
 

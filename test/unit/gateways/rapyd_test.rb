@@ -18,7 +18,8 @@ class RapydTest < Test::Unit::TestCase
       description: 'Describe this transaction',
       statement_descriptor: 'Statement Descriptor',
       email: 'test@example.com',
-      billing_address: address(name: 'Jim Reynolds')
+      billing_address: address(name: 'Jim Reynolds'),
+      order_id: '987654321'
     }
 
     @metadata = {
@@ -39,6 +40,8 @@ class RapydTest < Test::Unit::TestCase
     }
 
     @ewallet_id = 'ewallet_1a867a32b47158b30a8c17d42f12f3f1'
+
+    @address_object = address(line_1: '123 State Street', line_2: 'Apt. 34', phone_number: '12125559999')
   end
 
   def test_successful_purchase
@@ -64,7 +67,7 @@ class RapydTest < Test::Unit::TestCase
   end
 
   def test_successful_purchase_with_token
-    @options.merge(customer_id: 'cus_9e1b5a357b2b7f25f8dd98827fbc4f22')
+    @options[:customer_id] = 'cus_9e1b5a357b2b7f25f8dd98827fbc4f22'
     response = stub_comms(@gateway, :ssl_request) do
       @gateway.purchase(@amount, @authorization, @options)
     end.check_request do |_method, _endpoint, data, _headers|
@@ -85,6 +88,21 @@ class RapydTest < Test::Unit::TestCase
       assert_match(/"error_payment_url":"www.google.com"/, data)
       assert_match(/"description":"Describe this transaction"/, data)
       assert_match(/"statement_descriptor":"Statement Descriptor"/, data)
+      assert_match(/"merchant_reference_id":"987654321"/, data)
+    end.respond_with(successful_authorize_response)
+
+    assert_success response
+  end
+
+  def test_successful_purchase_with_explicit_merchant_reference_id
+    response = stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, @options.merge({ merchant_reference_id: '99988877776' }))
+    end.check_request do |_method, _endpoint, data, _headers|
+      assert_match(/"complete_payment_url":"www.google.com"/, data)
+      assert_match(/"error_payment_url":"www.google.com"/, data)
+      assert_match(/"description":"Describe this transaction"/, data)
+      assert_match(/"statement_descriptor":"Statement Descriptor"/, data)
+      assert_match(/"merchant_reference_id":"99988877776"/, data)
     end.respond_with(successful_authorize_response)
 
     assert_success response
@@ -208,6 +226,42 @@ class RapydTest < Test::Unit::TestCase
     assert_equal customer_id, unstore.params.dig('data', 'id')
   end
 
+  def test_failed_purchase_without_customer_object
+    @options[:pm_type] = 'us_debit_visa_card'
+    @gateway.expects(:ssl_request).returns(failed_purchase_response)
+    response = @gateway.purchase(@amount, @credit_card, @options)
+    assert_failure response
+    assert_equal 'ERROR_PROCESSING_CARD - [05]', response.params['status']['error_code']
+  end
+
+  def test_successful_purchase_with_customer_object
+    stub_comms(@gateway, :ssl_request) do
+      @options[:pm_type] = 'us_debit_mastercard_card'
+      @gateway.purchase(@amount, @credit_card, @options)
+    end.check_request(skip_response: true) do |_method, _endpoint, data, _headers|
+      assert_match(/"name":"Jim Reynolds"/, data)
+      assert_match(/"email":"test@example.com"/, data)
+      assert_match(/"phone_number":"5555555555"/, data)
+      assert_match(/"customer":/, data)
+    end
+  end
+
+  def test_successful_purchase_with_billing_address_phone_variations
+    stub_comms(@gateway, :ssl_request) do
+      @options[:pm_type] = 'us_debit_mastercard_card'
+      @gateway.purchase(@amount, @credit_card, { billing_address: { phone_number: '919.123.1234' } })
+    end.check_request(skip_response: true) do |_method, _endpoint, data, _headers|
+      assert_match(/"phone_number":"9191231234"/, data)
+    end
+
+    stub_comms(@gateway, :ssl_request) do
+      @options[:pm_type] = 'us_debit_mastercard_card'
+      @gateway.purchase(@amount, @credit_card, { billing_address: { phone: '919.123.1234' } })
+    end.check_request(skip_response: true) do |_method, _endpoint, data, _headers|
+      assert_match(/"phone_number":"9191231234"/, data)
+    end
+  end
+
   def test_successful_store_with_customer_object
     response = stub_comms(@gateway, :ssl_request) do
       @gateway.store(@credit_card, @options)
@@ -218,6 +272,45 @@ class RapydTest < Test::Unit::TestCase
     end.respond_with(successful_store_response)
 
     assert_success response
+  end
+
+  def test_payment_urls_correctly_nested_by_operation
+    response = stub_comms(@gateway, :ssl_request) do
+      @gateway.store(@credit_card, @options)
+    end.check_request do |_method, _endpoint, data, _headers|
+      request_body = JSON.parse(data)
+      assert_equal @options[:complete_payment_url], request_body['payment_method']['complete_payment_url']
+      assert_equal @options[:error_payment_url], request_body['payment_method']['error_payment_url']
+    end.respond_with(successful_store_response)
+
+    assert_success response
+
+    response = stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, @options)
+    end.check_request do |_method, _endpoint, data, _headers|
+      request_body = JSON.parse(data)
+      assert_equal @options[:complete_payment_url], request_body['complete_payment_url']
+      assert_equal @options[:error_payment_url], request_body['error_payment_url']
+    end.respond_with(successful_store_response)
+
+    assert_success response
+  end
+
+  def test_purchase_with_customer_and_card_id
+    store = stub_comms(@gateway, :ssl_request) do
+      @gateway.store(@credit_card, @options)
+    end.respond_with(successful_store_response)
+
+    assert customer_id = store.params.dig('data', 'id')
+    assert card_id = store.params.dig('data', 'default_payment_method')
+
+    stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, store.authorization, @options)
+    end.check_request do |_method, _endpoint, data, _headers|
+      request_body = JSON.parse(data)
+      assert_equal request_body['customer'], customer_id
+      assert_equal request_body['payment_method'], card_id
+    end.respond_with(successful_purchase_response)
   end
 
   def test_three_d_secure

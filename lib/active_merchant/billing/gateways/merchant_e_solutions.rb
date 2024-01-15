@@ -27,27 +27,21 @@ module ActiveMerchant #:nodoc:
 
       def authorize(money, creditcard_or_card_id, options = {})
         post = {}
-        post[:client_reference_number] = options[:customer] if options[:customer]
-        post[:moto_ecommerce_ind] = options[:moto_ecommerce_ind] if options[:moto_ecommerce_ind]
-        post[:recurring_pmt_num] = options[:recurring_pmt_num] if options[:recurring_pmt_num]
-        post[:recurring_pmt_count] = options[:recurring_pmt_count] if options[:recurring_pmt_count]
         add_invoice(post, options)
         add_payment_source(post, creditcard_or_card_id, options)
         add_address(post, options)
         add_3dsecure_params(post, options)
+        add_stored_credentials(post, options)
         commit('P', money, post)
       end
 
       def purchase(money, creditcard_or_card_id, options = {})
         post = {}
-        post[:client_reference_number] = options[:customer] if options[:customer]
-        post[:moto_ecommerce_ind] = options[:moto_ecommerce_ind] if options[:moto_ecommerce_ind]
-        post[:recurring_pmt_num] = options[:recurring_pmt_num] if options[:recurring_pmt_num]
-        post[:recurring_pmt_count] = options[:recurring_pmt_count] if options[:recurring_pmt_count]
         add_invoice(post, options)
         add_payment_source(post, creditcard_or_card_id, options)
         add_address(post, options)
         add_3dsecure_params(post, options)
+        add_stored_credentials(post, options)
         commit('D', money, post)
       end
 
@@ -165,6 +159,16 @@ module ActiveMerchant #:nodoc:
         post[:ucaf_auth_data] = options[:ucaf_auth_data] unless empty?(options[:ucaf_auth_data])
       end
 
+      def add_stored_credentials(post, options)
+        post[:client_reference_number] = options[:client_reference_number] if options[:client_reference_number]
+        post[:moto_ecommerce_ind] = options[:moto_ecommerce_ind] if options[:moto_ecommerce_ind]
+        post[:recurring_pmt_num] = options[:recurring_pmt_num] if options[:recurring_pmt_num]
+        post[:recurring_pmt_count] = options[:recurring_pmt_count] if options[:recurring_pmt_count]
+        post[:card_on_file] = options[:card_on_file] if options[:card_on_file]
+        post[:cit_mit_indicator] = options[:cit_mit_indicator] if options[:cit_mit_indicator]
+        post[:account_data_source] = options[:account_data_source] if options[:account_data_source]
+      end
+
       def parse(body)
         results = {}
         body.split(/&/).each do |pair|
@@ -185,11 +189,15 @@ module ActiveMerchant #:nodoc:
             { 'error_code' => '404', 'auth_response_text' => e.to_s }
           end
 
-        Response.new(success_from(response), message_from(response), response,
+        Response.new(
+          success_from(response),
+          message_from(response),
+          response,
           authorization: authorization_from(response),
           test: test?,
           cvv_result: response['cvv2_result'],
-          avs_result: { code: response['avs_result'] })
+          avs_result: { code: response['avs_result'] }
+        )
       end
 
       def authorization_from(response)

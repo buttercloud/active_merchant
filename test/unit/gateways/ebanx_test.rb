@@ -28,9 +28,19 @@ class EbanxTest < Test::Unit::TestCase
 
   def test_successful_purchase_with_optional_processing_type_header
     response = stub_comms(@gateway, :ssl_request) do
-      @gateway.purchase(@accepted_amount, @credit_card, @options.merge(processing_type: 'local'))
+      @gateway.purchase(@amount, @credit_card, @options.merge(processing_type: 'local'))
     end.check_request do |_method, _endpoint, _data, headers|
       assert_equal 'local', headers['x-ebanx-api-processing-type']
+    end.respond_with(successful_purchase_response)
+
+    assert_success response
+  end
+
+  def test_successful_purchase_with_soft_descriptor
+    response = stub_comms(@gateway, :ssl_request) do
+      @gateway.purchase(@amount, @credit_card, @options.merge(soft_descriptor: 'ActiveMerchant'))
+    end.check_request do |_method, _endpoint, data, _headers|
+      assert_match %r{"soft_descriptor\":\"ActiveMerchant\"}, data
     end.respond_with(successful_purchase_response)
 
     assert_success response
@@ -159,6 +169,18 @@ class EbanxTest < Test::Unit::TestCase
     @gateway.expects(:ssl_request).returns(successful_purchase_with_stored_card_response)
 
     response = @gateway.purchase(@amount, store.authorization, @options)
+    assert_success response
+  end
+
+  def test_successful_purchase_and_inquire
+    @gateway.expects(:ssl_request).returns(successful_purchase_response)
+
+    purchase = @gateway.purchase(@amount, @credit_card, @options)
+    assert_success purchase
+
+    @gateway.expects(:ssl_request).returns(successful_purchase_response)
+    response = @gateway.inquire(purchase.authorization)
+
     assert_success response
   end
 
