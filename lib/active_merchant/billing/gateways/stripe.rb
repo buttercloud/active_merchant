@@ -5,7 +5,7 @@ module ActiveMerchant # :nodoc:
     # This gateway uses an older version of the Stripe API.
     # To utilize the updated {Payment Intents API}[https://stripe.com/docs/api/payment_intents], integrate with the StripePaymentIntents gateway
     class StripeGateway < Gateway
-      # version '2020-08-27'
+      # version '2020-08-27' # Method not supported so commenting out
 
       self.live_url = 'https://api.stripe.com/v1/'
 
@@ -27,7 +27,7 @@ module ActiveMerchant # :nodoc:
         'unchecked' => 'P'
       }
 
-      DEFAULT_API_VERSION = '2020-08-27'
+      DEFAULT_API_VERSION = '2025-04-30.preview' # Manually add version instead of calling unsupported fetch_version method
 
       self.supported_countries = %w(AE AT AU BE BG BR CA CH CY CZ DE DK EE ES FI FR GB GR HK HU IE IN IT JP LT LU LV MT MX MY NL NO NZ PL PT RO SE SG SI SK US)
       self.default_currency = 'USD'
